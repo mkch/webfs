@@ -1,0 +1,114 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <title>Send file</title>
+</head>
+
+<body>
+
+    <input style="display: none;" type="file" id="file_upload">
+    <div style="text-align: center; margin-top: 10pt;">
+        <div id="choose_file">
+            <button onclick="start()">Choose file</button>
+        </div>
+        <div id="progress" style="display: none;">
+            <div>
+                <span>File ID: </span>
+                <span id="task_id"></span>
+            </div>
+            <div id="task_progress"></div>
+        </div>
+
+        <div style="margin-top: 10pt;">
+            <a href="#" onclick="history.back()">Back</a>
+        </div>
+    </div>
+
+    <script>
+        function uploadFile(taskID, file) {
+            const chooseFilePanel = document.querySelector("#choose_file");
+            const progressPanel = document.querySelector("#progress");
+            const taskIDDisplay = document.querySelector("#task_id");
+            const taskProgress = document.querySelector("#task_progress");
+
+            chooseFilePanel.style.display = "none";
+            progressPanel.style.display = "block";
+            taskIDDisplay.textContent = taskID;
+            taskProgress.textContent = "Waiting for downloading……"
+
+            const xhr = new XMLHttpRequest();
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    let percentage = Math.round((e.loaded * 100) / e.total);
+                    if (percentage > 99) {
+                        percentage = 99;
+                    }
+                    taskProgress.textContent = `${percentage}%`;
+                } else {
+                    taskProgress.textContent = "Downloading starts……";
+                }
+            };
+
+            xhr.upload.onload = function (e) {
+                taskProgress.textContent = 'Completed!';
+            };
+
+            xhr.upload.onerror = function (e) {
+                taskProgress.textContent = 'Failed!';
+            };
+
+            xhr.onreadystatechange = function (e) {
+                // onerror will not be triggered
+                // if the body is not received completely 
+                // before a bad status code is returned.
+                //
+                // readyState 4 = DONE
+                if (e.target.readyState < 4) {
+                    return;
+                }
+                // Uploading is done. No need to show confirmation dialog.
+                window.onbeforeunload = null;
+                if (e.target.status != 200) {
+                    taskProgress.textContent = 'Failed!';
+                    alert(`Failed to send file!`);
+                }
+            };
+
+            xhr.open('POST', `/send_file?task=${encodeURIComponent(taskID)}&filename=${encodeURIComponent(file.name)}&size=${encodeURIComponent(file.size)}`, true);
+            xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+            xhr.send(file);
+            // Show confirmation dialog before unload
+            // because uploading is in progress.
+            window.onbeforeunload = (e) => { e.returnValue = true; };
+        }
+        function sendFile(taskID) {
+            const fileUpload = document.querySelector("#file_upload");
+            fileUpload.value = "";
+            fileUpload.accept = "";
+            fileUpload.onchange = () => {
+                if (fileUpload.files.length > 0) {
+                    uploadFile(taskID, fileUpload.files[0]);
+                }
+                fileUpload.value = "";
+                fileUpload.onchange = undefined;
+            };
+            fileUpload.dispatchEvent(new MouseEvent("click"));
+        }
+        function start() {
+            fetch("/new_task")
+                .then((response) => {
+                    if (response.ok) {
+                        response.text().then((taskID) => sendFile(taskID))
+                    } else {
+                        response.text().then((error) => alert(`New task failed: ${error}`))
+                    }
+                })
+                .catch((error) => alert(`New task failed: ${error}`));
+        }
+    </script>
+
+</body>

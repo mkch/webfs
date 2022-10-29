@@ -1,0 +1,28 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <title>Receive file</title>
+</head>
+
+<body>
+    <div style="text-align: center; ; margin-top: 10pt;">
+        <div>
+            <input id="task_id" placeholder="File ID" style="width: 6em;"> <button
+                onclick="download()">Download</button>
+        </div>
+        <div style="margin-top: 10pt;">
+            <a href="#" onclick="history.back()">Back</a>
+        </div>
+    </div>
+
+    <script>
+        function download() {
+            const taskID = document.querySelector("#task_id").value.trim().toUpperCase();
+            window.location.href = `/receive_file?id=${encodeURIComponent(taskID)}`;
+        }
+    </script>
+</body>
