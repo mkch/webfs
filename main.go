@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -34,24 +36,6 @@ func execTemplate(w io.Writer, name string, value any) {
 	}
 }
 
-func queryTask(id string) *fileTask {
-	tasksLock.RLock()
-	defer tasksLock.RUnlock()
-	return tasks[id]
-}
-
-func cancelTask(id string) {
-	tasksLock.Lock()
-	defer tasksLock.Unlock()
-
-	task := tasks[id]
-	if task == nil {
-		return
-	}
-	task.CtxCancel()
-	delete(tasks, id)
-}
-
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		w.WriteHeader(http.StatusNotFound)
@@ -63,6 +47,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 const defaultTaskTimeout = time.Minute * 10
 const maxTaskTimeout = time.Minute * 30
 
+// handleNewTask generates a new fileTask and responds the ID.
 func handleNewTask(w http.ResponseWriter, r *http.Request) {
 	var query = r.URL.Query()
 	timeout := defaultTaskTimeout
@@ -85,25 +70,22 @@ func handleNewTask(w http.ResponseWriter, r *http.Request) {
 
 	_, err = io.WriteString(w, task.ID())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Println(err)
 		return
 	}
-
-	// in case of timeout.
-	go func() {
-		<-task.CtxDone()
-		cancelTask(task.ID())
-	}()
 }
 
+// handleSend renders /send page.
 func handleSend(w http.ResponseWriter, r *http.Request) {
 	execTemplate(w, "send.html", nil)
 }
 
+// handleReceive renders /receive page.
 func handleReceive(w http.ResponseWriter, r *http.Request) {
 	execTemplate(w, "receive.html", nil)
 }
 
+// handleSendFile uploads a file to the fileTask.
 func handleSendFile(w http.ResponseWriter, r *http.Request) {
 	var query = r.URL.Query()
 	taskID := query.Get("task")
@@ -125,13 +107,19 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task.SetFile(filename, fileSize, r.Body)
-
-	defer cancelTask(task.ID())
+	// This task is already uploading.
+	if !task.SetFile(filename, fileSize, r.Body) {
+		http.Error(w, "duplicated upload", http.StatusBadRequest)
+		return
+	}
 
 	select {
-	case err = <-task.DownloadDone():
-	case <-task.ctxDone():
+	case <-task.DownloadStarted():
+		// If the downloading started before task timeout/cancellation,
+		// task timeout/cancellation is ignored.
+		err = <-task.DownloadDone()
+	case err = <-task.DownloadDone(): // Finish downloading.
+	case <-task.ctxDone(): // Task timeout/cancelled.
 		err = task.ctxErr()
 	}
 
@@ -141,14 +129,16 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleReceiveFile download a file from the fileTask.
 func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 	var query = r.URL.Query()
 	taskId := query.Get("id")
-	task := queryTask(taskId)
+	task := fetchTask(taskId) // fetch: only one download per task.
 	if task == nil {
 		http.Error(w, "no such task", http.StatusNotFound)
 		return
 	}
+	defer task.CtxCancel()
 
 	filename, fileSize, reader := task.File()
 	header := w.Header()
@@ -159,10 +149,16 @@ func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 	header.Set("Content-Disposition", fmt.Sprintf(`attachment; filename*=utf-8''%v; filename="%v"`, url.QueryEscape(filename), strings.ReplaceAll(filename, `"`, `_`)))
 	header.Set("Content-Type", "application/octet-stream")
 
+	task.SetDownloadStarted()
 	_, err := io.Copy(w, reader)
-
-	task.SetDownloadDone(err)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		var netErr net.Error
+		if errors.As(err, &netErr) {
+			log.Println(err)
+			err = errors.New("network error occurred")
+		} else {
+			log.Panic(err)
+		}
 	}
+	task.SetDownloadDone(err)
 }

@@ -74,7 +74,11 @@
                 window.onbeforeunload = null;
                 if (e.target.status != 200) {
                     taskProgress.textContent = 'Failed!';
-                    alert(`Failed to send file!`);
+                    if (e.target.status != 0 && e.target.response) {
+                        alert(`Failed to send file: ${e.target.response}`);
+                    } else {
+                        alert(`Failed to send file!`);
+                    }
                 }
             };
 
