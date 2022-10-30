@@ -2,23 +2,40 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
 )
 
-const ServeAddr = ":8080"
+const DefaultServeAddr = ":8080"
+
+const DefaultIDLen = 3
+const MaxIDLen = 64
 
 var t *template.Template
 
+var idLen int // length of task code.
+
 func main() {
+	var serveAddr string
+
+	flag.StringVar(&serveAddr, "http", DefaultServeAddr, "HTTP service address")
+	flag.IntVar(&idLen, "code_len", DefaultIDLen, fmt.Sprintf("Length of the task code, [%v,%v]", DefaultIDLen, MaxIDLen))
+	if idLen < DefaultIDLen || idLen > MaxIDLen {
+		fmt.Fprintln(os.Stderr, "Invalid code_len")
+		os.Exit(1)
+	}
+	flag.Parse()
+
 	t = template.Must(template.ParseGlob("t/*.html"))
 
 	http.HandleFunc("/", handleIndex)
@@ -27,7 +44,12 @@ func main() {
 	http.HandleFunc("/receive_file", handleReceiveFile)
 	http.HandleFunc("/send", handleSend)
 	http.HandleFunc("/receive", handleReceive)
-	http.ListenAndServe(ServeAddr, nil)
+
+	log.Printf("Starting server %v", serveAddr)
+	if err := http.ListenAndServe(serveAddr, nil); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
 }
 
 func execTemplate(w io.Writer, name string, value any) {
@@ -62,7 +84,7 @@ func handleNewTask(w http.ResponseWriter, r *http.Request) {
 			timeout = d
 		}
 	}
-	task, err := newTask(timeout)
+	task, err := newTask(idLen, timeout)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

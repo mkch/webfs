@@ -98,11 +98,8 @@ func (t *fileTask) SetDownloadStarted() {
 
 const maxTask = 10240
 
-// The length of file task ID.
-const idLength = 3
-
 // newTask creates a new file task.
-func newTask(timeout time.Duration) (*fileTask, error) {
+func newTask(idLen int, timeout time.Duration) (*fileTask, error) {
 	tasksLock.Lock()
 	defer tasksLock.Unlock()
 
@@ -120,7 +117,7 @@ func newTask(timeout time.Duration) (*fileTask, error) {
 	}
 
 	for i := 0; i < 9999; i++ {
-		id := token.New(idLength)
+		id := token.New(idLen)
 		if _, ok := tasks[id]; ok {
 			continue
 		}

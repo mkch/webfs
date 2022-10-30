@@ -17,7 +17,7 @@
         </div>
         <div id="progress" style="display: none;">
             <div>
-                <span>File ID: </span>
+                <span>File Code: </span>
                 <span id="task_id"></span>
             </div>
             <div id="task_progress"></div>
@@ -53,14 +53,6 @@
                 }
             };
 
-            xhr.upload.onload = function (e) {
-                taskProgress.textContent = 'Completed!';
-            };
-
-            xhr.upload.onerror = function (e) {
-                taskProgress.textContent = 'Failed!';
-            };
-
             xhr.onreadystatechange = function (e) {
                 // onerror will not be triggered
                 // if the body is not received completely 
@@ -72,7 +64,9 @@
                 }
                 // Uploading is done. No need to show confirmation dialog.
                 window.onbeforeunload = null;
-                if (e.target.status != 200) {
+                if (e.target.status == 200) {
+                    taskProgress.textContent = 'Completed!';
+                } else {
                     taskProgress.textContent = 'Failed!';
                     if (e.target.status != 0 && e.target.response) {
                         alert(`Failed to send file: ${e.target.response}`);
