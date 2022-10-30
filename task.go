@@ -79,7 +79,13 @@ func (t *fileTask) DownloadDone() <-chan error {
 }
 
 func (t *fileTask) SetDownloadDone(err error) {
-	t.downloadDone <- err
+	select {
+	// In case of context cancellation/timeout.
+	// If the context is done, uploading will be cancelled,
+	// and there is no receiving of t.downloadDone.
+	case <-t.ctxDone():
+	case t.downloadDone <- err:
+	}
 }
 
 func (t *fileTask) DownloadStarted() <-chan error {
