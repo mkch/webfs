@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -192,6 +191,15 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// utf8PercentageEncode encodes str using utf8 percentage notion.
+func utf8PercentageEncode(str string) string {
+	var buf strings.Builder
+	for _, b := range []byte(str) {
+		fmt.Fprintf(&buf, "%%%02X", b)
+	}
+	return buf.String()
+}
+
 // handleReceiveFile download a file from the fileTask.
 func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 	task := queryTask(path.Base(r.URL.Path))
@@ -214,7 +222,7 @@ func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 		header.Set("Content-Length", strconv.FormatInt(fileSize, 10))
 	}
 	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
-	header.Set("Content-Disposition", fmt.Sprintf(`attachment; filename*=utf-8''%v; filename="%v"`, url.QueryEscape(filename), strings.ReplaceAll(filename, `"`, `_`)))
+	header.Set("Content-Disposition", fmt.Sprintf(`attachment; filename*=utf-8''%v`, utf8PercentageEncode(filename)))
 	header.Set("Content-Type", "application/octet-stream")
 
 	content.SetDownloadStarted()
