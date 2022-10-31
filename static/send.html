@@ -9,16 +9,32 @@
 </head>
 
 <body>
+    <style>
+        .hidden {
+            display: none
+        }
+
+        .code {
+            border: none;
+            font-size: medium;
+            color: cadetblue;
+            font-weight: bold;
+        }
+    </style>
 
     <input style="display: none;" type="file" id="file_upload">
     <div style="text-align: center; margin-top: 10pt;">
         <div id="choose_file">
             <button onclick="start()">Choose file</button>
         </div>
-        <div id="progress" style="display: none;">
-            <div>
-                <span>File Code: </span>
-                <span id="task_id"></span>
+        <div id="progress" class="hidden" style="width: fit-content; margin-left: auto; margin-right: auto;">
+            <div style="text-align: left;">
+                <span>File Code:</span>
+                <span id="task_id" class="code"></span>
+            </div>
+            <div style="text-align: left; margin-bottom: 10pt;">
+                <span>File URL: </span>
+                <span id="task_url" class="code"></span>
             </div>
             <div id="task_progress"></div>
         </div>
@@ -34,11 +50,13 @@
             const chooseFilePanel = document.querySelector("#choose_file");
             const progressPanel = document.querySelector("#progress");
             const taskIDDisplay = document.querySelector("#task_id");
+            const taskUrlDisplay = document.querySelector("#task_url");
             const taskProgress = document.querySelector("#task_progress");
 
-            chooseFilePanel.style.display = "none";
-            progressPanel.style.display = "block";
+            chooseFilePanel.classList.add("hidden")
+            progressPanel.classList.remove("hidden")
             taskIDDisplay.textContent = task.id;
+            taskUrlDisplay.textContent = `${location.origin}/r/${encodeURIComponent(task.id)}`
             taskProgress.textContent = "Waiting for download……"
 
             let retry = null;
@@ -71,7 +89,7 @@
                             alert('Task cancelled!')
                             window.location.reload();
                         default:
-                            taskProgress.textContent = 'Waiting for download……!';
+                            taskProgress.textContent = 'Waiting for download……';
                             if (retry) {
                                 clearTimeout(retry);
                             }

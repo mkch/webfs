@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ func main() {
 	http.HandleFunc("/new_task", handleNewTask)
 	http.HandleFunc("/cancel_task", handleCancelTask)
 	http.HandleFunc("/send_file", handleSendFile)
-	http.HandleFunc("/receive_file", handleReceiveFile)
+	http.HandleFunc("/r/", handleReceiveFile)
 	http.HandleFunc("/send", handleSend)
 	http.HandleFunc("/receive", handleReceive)
 
@@ -176,8 +177,7 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 
 // handleReceiveFile download a file from the fileTask.
 func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
-	var query = r.URL.Query()
-	task := queryTask(query.Get("task"))
+	task := queryTask(path.Base(r.URL.Path))
 	if task == nil {
 		http.Error(w, "no such task", http.StatusNotFound)
 		return
