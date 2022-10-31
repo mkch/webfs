@@ -22,7 +22,7 @@
     <script>
         function download() {
             const taskID = document.querySelector("#task_id").value.trim().toUpperCase();
-            window.location.href = `/receive_file?id=${encodeURIComponent(taskID)}`;
+            window.location.href = `/receive_file?task=${encodeURIComponent(taskID)}`;
         }
     </script>
 </body>

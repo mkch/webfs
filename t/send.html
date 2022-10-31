@@ -29,7 +29,8 @@
     </div>
 
     <script>
-        function uploadFile(taskID, file) {
+        function uploadFile(task, file) {
+            window.onunload = () => fetch(`/cancel_task?task=${encodeURIComponent(task.id)}&secret=${encodeURIComponent(task.secret)}`);
             const chooseFilePanel = document.querySelector("#choose_file");
             const progressPanel = document.querySelector("#progress");
             const taskIDDisplay = document.querySelector("#task_id");
@@ -37,59 +38,58 @@
 
             chooseFilePanel.style.display = "none";
             progressPanel.style.display = "block";
-            taskIDDisplay.textContent = taskID;
-            taskProgress.textContent = "Waiting for downloading……"
+            taskIDDisplay.textContent = task.id;
+            taskProgress.textContent = "Waiting for download……"
 
-            const xhr = new XMLHttpRequest();
-            xhr.upload.onprogress = function (e) {
-                if (e.lengthComputable) {
-                    let percentage = Math.round((e.loaded * 100) / e.total);
-                    if (percentage > 99) {
-                        percentage = 99;
-                    }
-                    taskProgress.textContent = `${percentage}%`;
-                } else {
-                    taskProgress.textContent = "Downloading starts……";
-                }
-            };
-
-            xhr.onreadystatechange = function (e) {
-                // onerror will not be triggered
-                // if the body is not received completely 
-                // before a bad status code is returned.
-                //
-                // readyState 4 = DONE
-                if (e.target.readyState < 4) {
-                    return;
-                }
-                // Uploading is done. No need to show confirmation dialog.
-                window.onbeforeunload = null;
-                if (e.target.status == 200) {
-                    taskProgress.textContent = 'Completed!';
-                } else {
-                    taskProgress.textContent = 'Failed!';
-                    if (e.target.status != 0 && e.target.response) {
-                        alert(`Failed to send file: ${e.target.response}`);
+            function upload() {
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = function (e) {
+                    if (e.lengthComputable) {
+                        let percentage = Math.round((e.loaded * 100) / e.total);
+                        if (percentage > 99) {
+                            percentage = 99;
+                        }
+                        taskProgress.textContent = `${percentage}%`;
                     } else {
-                        alert(`Failed to send file!`);
+                        taskProgress.textContent = "Downloading starts……";
                     }
-                }
-            };
+                };
 
-            xhr.open('POST', `/send_file?task=${encodeURIComponent(taskID)}&filename=${encodeURIComponent(file.name)}&size=${encodeURIComponent(file.size)}`, true);
-            xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-            xhr.send(file);
-            // Show confirmation dialog before unload
-            // because uploading is in progress.
-            window.onbeforeunload = (e) => { e.returnValue = true; };
+                xhr.onreadystatechange = function (e) {
+                    // onerror will not be triggered
+                    // if the body is not received completely 
+                    // before a bad status code is returned.
+                    //
+                    // readyState 4 = DONE
+                    if (e.target.readyState < 4) {
+                        return;
+                    }
+                    window.onbeforeunload = null;
+                    switch (e.target.status) {
+                        case 404:
+                            alert('Task cancelled!')
+                            window.location.reload();
+                        default:
+                            taskProgress.textContent = 'Waiting for download……!';
+                            upload(); // Upload again.
+                            break;
+                    }
+                };
+
+                xhr.open('POST', `/send_file?task=${encodeURIComponent(task.id)}&secret=${encodeURIComponent(task.secret)}&filename=${encodeURIComponent(file.name)}&size=${encodeURIComponent(file.size)}`, true);
+                xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+                xhr.send(file);
+                window.onbeforeunload = (e) => e.returnValue = true;
+            }
+            upload();
         }
-        function sendFile(taskID) {
+        function sendFile(task) {
             const fileUpload = document.querySelector("#file_upload");
             fileUpload.value = "";
             fileUpload.accept = "";
             fileUpload.onchange = () => {
                 if (fileUpload.files.length > 0) {
-                    uploadFile(taskID, fileUpload.files[0]);
+                    uploadFile(task, fileUpload.files[0]);
                 }
                 fileUpload.value = "";
                 fileUpload.onchange = undefined;
@@ -100,7 +100,9 @@
             fetch("/new_task")
                 .then((response) => {
                     if (response.ok) {
-                        response.text().then((taskID) => sendFile(taskID))
+                        response.text().then((task) => {
+                            sendFile(JSON.parse(task));
+                        })
                     } else {
                         response.text().then((error) => alert(`New task failed: ${error}`))
                     }
