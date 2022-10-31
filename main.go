@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -19,7 +18,7 @@ import (
 	"github.com/mkch/webfs/modfs"
 	"github.com/mkch/webfs/token"
 
-	_ "embed"
+	"embed"
 )
 
 //go:embed static
