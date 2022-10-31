@@ -37,6 +37,7 @@
                 <span id="task_url" class="code"></span>
             </div>
             <div id="task_progress"></div>
+            <div id="downloaded_times"></div>
         </div>
 
         <div style="margin-top: 10pt;">
@@ -52,6 +53,7 @@
             const taskIDDisplay = document.querySelector("#task_id");
             const taskUrlDisplay = document.querySelector("#task_url");
             const taskProgress = document.querySelector("#task_progress");
+            const downloadedTimesDisplay = document.querySelector("#downloaded_times")
 
             chooseFilePanel.classList.add("hidden")
             progressPanel.classList.remove("hidden")
@@ -60,6 +62,7 @@
             taskProgress.textContent = "Waiting for download……"
 
             let retry = null;
+            let downloadedTimes = 0;
             function upload() {
                 const xhr = new XMLHttpRequest();
                 xhr.upload.onprogress = function (e) {
@@ -88,6 +91,11 @@
                         case 404:
                             alert('Task cancelled!')
                             window.location.reload();
+                            break;
+                        case 200:
+                            downloadedTimes++;
+                            downloadedTimesDisplay.textContent = `Downloaded times: ${downloadedTimes}`;
+                        // no break;
                         default:
                             taskProgress.textContent = 'Waiting for download……';
                             if (retry) {
