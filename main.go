@@ -13,7 +13,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/mkch/webfs/token"
@@ -23,8 +22,6 @@ const DefaultServeAddr = ":8080"
 
 const DefaultIDLen = 3
 const MaxIDLen = 64
-
-var t *template.Template
 
 var idLen int // length of task code.
 
@@ -38,8 +35,6 @@ func main() {
 		os.Exit(1)
 	}
 	flag.Parse()
-
-	t = template.Must(template.ParseGlob("t/*.html"))
 
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/new_task", handleNewTask)
@@ -56,18 +51,12 @@ func main() {
 	}
 }
 
-func execTemplate(w io.Writer, name string, value any) {
-	if err := t.ExecuteTemplate(w, name, value); err != nil {
-		log.Panic(err)
-	}
-}
-
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	execTemplate(w, "index.html", nil)
+	http.ServeFile(w, r, "static/index.html")
 }
 
 const defaultTaskTimeout = time.Minute * 10
@@ -123,12 +112,12 @@ func handleNewTask(w http.ResponseWriter, r *http.Request) {
 
 // handleSend renders /send page.
 func handleSend(w http.ResponseWriter, r *http.Request) {
-	execTemplate(w, "send.html", nil)
+	http.ServeFile(w, r, "static/send.html")
 }
 
 // handleReceive renders /receive page.
 func handleReceive(w http.ResponseWriter, r *http.Request) {
-	execTemplate(w, "receive.html", nil)
+	http.ServeFile(w, r, "static/receive.html")
 }
 
 // handleSendFile uploads a file to the fileTask.
