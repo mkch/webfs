@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -16,8 +17,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mkch/webfs/modfs"
 	"github.com/mkch/webfs/token"
+
+	_ "embed"
 )
+
+//go:embed static
+var staticFiles embed.FS
+
+var staticFileServer = http.FileServer(http.FS(
+	// Add a valid ModTime to embed.FS, so the response can be cached by client.
+	// The original ModTime of the file returned by embed.FS.Open is 0.
+	&modfs.FS{
+		FS:           staticFiles,
+		LastModified: time.Now(),
+	}))
 
 const DefaultServeAddr = ":8080"
 
@@ -50,14 +65,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
-}
-
-func handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	http.ServeFile(w, r, "static/index.html")
 }
 
 const defaultTaskTimeout = time.Minute * 10
@@ -111,14 +118,25 @@ func handleNewTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handleIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	r.URL.Path = "static/home.html"
+	staticFileServer.ServeHTTP(w, r)
+}
+
 // handleSend renders /send page.
 func handleSend(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "static/send.html")
+	r.URL.Path = "static/send.html"
+	staticFileServer.ServeHTTP(w, r)
 }
 
 // handleReceive renders /receive page.
 func handleReceive(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "static/receive.html")
+	r.URL.Path = "static/receive.html"
+	staticFileServer.ServeHTTP(w, r)
 }
 
 // handleSendFile uploads a file to the fileTask.
