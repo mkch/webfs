@@ -160,7 +160,6 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Put task content: %v", filename)
 	var content = newFileTaskContent(filename, fileSize, r.Body)
 	select {
 	case <-task.CtxDone():
@@ -208,8 +207,6 @@ func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, task.ctxErr().Error(), http.StatusNotFound)
 		return
 	}
-
-	log.Printf("Got task content: %v", content.filename)
 
 	filename, fileSize, reader := content.File()
 	header := w.Header()
