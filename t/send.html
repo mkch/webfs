@@ -41,6 +41,7 @@
             taskIDDisplay.textContent = task.id;
             taskProgress.textContent = "Waiting for download……"
 
+            let retry = null;
             function upload() {
                 const xhr = new XMLHttpRequest();
                 xhr.upload.onprogress = function (e) {
@@ -71,7 +72,12 @@
                             window.location.reload();
                         default:
                             taskProgress.textContent = 'Waiting for download……!';
-                            upload(); // Upload again.
+                            if (retry) {
+                                clearTimeout(retry);
+                            }
+                            // e.target.status == 0
+                            // The request is not performed successfully. Maybe network error.
+                            retry = setTimeout(upload, e.target.status == 0 ? 1000 : 0)
                             break;
                     }
                 };
