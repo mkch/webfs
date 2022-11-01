@@ -1,6 +1,7 @@
 package modfs
 
 import (
+	"errors"
 	"io/fs"
 	"time"
 )
@@ -30,6 +31,13 @@ func (f *file) Stat() (fs.FileInfo, error) {
 		return nil, err
 	}
 	return &fileInfo{info, f.lastModified}, nil
+}
+
+func (f *file) ReadDir(n int) ([]fs.DirEntry, error) {
+	if dirFile, ok := f.File.(fs.ReadDirFile); ok {
+		return dirFile.ReadDir(n)
+	}
+	return nil, errors.New("not a dir")
 }
 
 type fileInfo struct {

@@ -57,6 +57,7 @@ func main() {
 	http.HandleFunc("/r/", handleReceiveFile)
 	http.HandleFunc("/send", handleSend)
 	http.HandleFunc("/receive", handleReceive)
+	http.HandleFunc("/res/", handleRes)
 
 	log.Printf("Starting server %v", serveAddr)
 	if err := http.ListenAndServe(serveAddr, nil); err != nil {
@@ -231,4 +232,13 @@ func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	content.SetDownloadDone(err)
+}
+
+func handleRes(w http.ResponseWriter, r *http.Request) {
+	newPath, err := url.JoinPath("static", r.URL.Path)
+	if err != nil {
+		log.Panic(err)
+	}
+	r.URL.Path = newPath
+	staticFileServer.ServeHTTP(w, r)
 }

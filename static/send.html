@@ -6,6 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
 
     <title>Send file</title>
+    <script src="/res/qrcode/qrcode.min.js"></script>
 </head>
 
 <body>
@@ -36,6 +37,9 @@
                 <span>File URL: </span>
                 <span id="task_url" class="code"></span>
             </div>
+            <div id="qrcode"
+                style="width:160px; height:160px; margin-top:10px; margin-bottom: 10px; margin-left: auto; margin-right: auto;">
+            </div>
             <div id="task_progress"></div>
             <div id="downloaded_times"></div>
         </div>
@@ -54,11 +58,20 @@
             const taskUrlDisplay = document.querySelector("#task_url");
             const taskProgress = document.querySelector("#task_progress");
             const downloadedTimesDisplay = document.querySelector("#downloaded_times")
+            const qrcode = document.querySelector("#qrcode");
 
             chooseFilePanel.classList.add("hidden")
             progressPanel.classList.remove("hidden")
             taskIDDisplay.textContent = task.id;
-            taskUrlDisplay.textContent = `${location.origin}/r/${encodeURIComponent(task.id)}`
+            const fileUrl = `${location.origin}/r/${encodeURIComponent(task.id)}`;
+            taskUrlDisplay.textContent = fileUrl
+            new QRCode("qrcode", {
+                text: fileUrl,
+                width: 160,
+                height: 160,
+                colorDark: "#5f9ea0",
+                colorLight: "#FFFFFF",
+            });
             taskProgress.textContent = "Waiting for download……"
 
             let retry = null;
