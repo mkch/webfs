@@ -111,7 +111,10 @@
                 xhr.open('POST', `/send_file?task=${encodeURIComponent(task.id)}&secret=${encodeURIComponent(task.secret)}&filename=${encodeURIComponent(file.name)}&size=${encodeURIComponent(file.size)}`, true);
                 xhr.setRequestHeader('Content-Type', 'application/octet-stream');
                 xhr.send(file);
-                window.onbeforeunload = (e) => e.returnValue = true;
+                window.onbeforeunload = (e) => {
+                    e.returnValue = true;
+                    e.preventDefault();
+                };
             }
             upload();
         }
