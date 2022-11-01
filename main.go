@@ -204,6 +204,10 @@ func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 	case <-task.CtxDone():
 		http.Error(w, task.ctxErr().Error(), http.StatusNotFound)
 		return
+	case <-r.Context().Done():
+		// The request connection is closed.
+		// No need to write any response.
+		return
 	}
 
 	filename, fileSize, reader := content.File()
