@@ -26,7 +26,7 @@
     <input style="display: none;" type="file" id="file_upload">
     <div style="text-align: center; margin-top: 10pt;">
         <div id="choose_file">
-            <button onclick="start()">Choose file</button>
+            <button id="choose_file_button" onclick="start()">Choose file</button>
         </div>
         <div id="progress" class="hidden" style="width: fit-content; margin-left: auto; margin-right: auto;">
             <div style="text-align: left;">
@@ -131,31 +131,34 @@
             }
             upload();
         }
-        function sendFile(task) {
-            const fileUpload = document.querySelector("#file_upload");
-            fileUpload.value = "";
-            fileUpload.accept = "";
-            fileUpload.onchange = () => {
-                if (fileUpload.files.length > 0) {
-                    uploadFile(task, fileUpload.files[0]);
-                }
-                fileUpload.value = "";
-                fileUpload.onchange = undefined;
-            };
-            fileUpload.dispatchEvent(new MouseEvent("click"));
-        }
-        function start() {
+        function sendFile(file) {
+            const button = document.querySelector("#choose_file_button");
+            button.disabled = true;
             fetch("/new_task")
                 .then((response) => {
                     if (response.ok) {
                         response.text().then((task) => {
-                            sendFile(JSON.parse(task));
+                            uploadFile(JSON.parse(task), file);
                         })
                     } else {
                         response.text().then((error) => alert(`New task failed: ${error}`))
                     }
                 })
-                .catch((error) => alert(`New task failed: ${error}`));
+                .catch((error) => alert(`New task failed: ${error}`))
+                .finally(() => button.disabled = false);
+        }
+        function start() {
+            const fileUpload = document.querySelector("#file_upload");
+            fileUpload.value = "";
+            fileUpload.accept = "";
+            fileUpload.onchange = () => {
+                if (fileUpload.files.length > 0) {
+                    sendFile(fileUpload.files[0]);
+                }
+                fileUpload.value = "";
+                fileUpload.onchange = undefined;
+            };
+            fileUpload.dispatchEvent(new MouseEvent("click"));
         }
     </script>
 
