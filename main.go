@@ -191,10 +191,16 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// recvFailDelay is the delay after failure of
+// finding a task, for security.
+const recvFailDelay = time.Second * 2
+
 // handleReceiveFile download a file from the fileTask.
 func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 	task := queryTask(path.Base(r.URL.Path))
 	if task == nil {
+		// Increase the cost of brute force.
+		time.Sleep(recvFailDelay)
 		http.Error(w, "no such task", http.StatusNotFound)
 		return
 	}
