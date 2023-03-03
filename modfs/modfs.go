@@ -35,16 +35,35 @@ func (f *file) Stat() (fs.FileInfo, error) {
 
 func (f *file) ReadDir(n int) ([]fs.DirEntry, error) {
 	if dirFile, ok := f.File.(fs.ReadDirFile); ok {
-		return dirFile.ReadDir(n)
+		entries, err := dirFile.ReadDir(n)
+		if err == nil {
+			for i, dir := range entries {
+				entries[i] = &dirEntry{dir, f.lastModified}
+			}
+		}
+		return entries, err
 	}
 	return nil, errors.New("not a dir")
 }
 
+type dirEntry struct {
+	fs.DirEntry
+	lastModified time.Time
+}
+
+func (dir *dirEntry) Info() (fs.FileInfo, error) {
+	if info, err := dir.DirEntry.Info(); err != nil {
+		return info, err
+	} else {
+		return &fileInfo{info, dir.lastModified}, nil
+	}
+}
+
 type fileInfo struct {
 	fs.FileInfo
-	LastModified time.Time
+	lastModified time.Time
 }
 
 func (info *fileInfo) ModTime() time.Time {
-	return info.LastModified
+	return info.lastModified
 }
