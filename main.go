@@ -49,7 +49,7 @@ func main() {
 	flag.Parse()
 
 	if idLen < DefaultIDLen || idLen > MaxIDLen {
-		fmt.Fprintln(os.Stderr, "Invalid code_len")
+		fmt.Fprintln(os.Stderr, "Invalid code-len")
 		os.Exit(1)
 	}
 
