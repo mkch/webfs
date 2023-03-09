@@ -37,13 +37,15 @@ const DefaultServeAddr = ":8080"
 const DefaultIDLen = 3
 const MaxIDLen = 64
 
-var idLen int // length of task code.
+var idLen int   // length of task code.
+var showQR bool // Whether show QR code when sending file.
 
 func main() {
 	var serveAddr string
 
 	flag.StringVar(&serveAddr, "http", DefaultServeAddr, "HTTP service address")
 	flag.IntVar(&idLen, "code_len", DefaultIDLen, fmt.Sprintf("Length of the task code, [%v,%v]", DefaultIDLen, MaxIDLen))
+	flag.BoolVar(&showQR, "show-qr", false, "Show QR code of downloading URL in sending page")
 	flag.Parse()
 
 	if idLen < DefaultIDLen || idLen > MaxIDLen {
@@ -111,7 +113,8 @@ func handleNewTask(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(struct {
 		ID     string `json:"id"`
 		Secret string `json:"secret"`
-	}{ID: task.ID(), Secret: task.Secret()})
+		ShowQR bool   `json:"show_qr"`
+	}{ID: task.ID(), Secret: task.Secret(), ShowQR: showQR})
 	if err != nil {
 		log.Println(err)
 		return

@@ -65,13 +65,18 @@
             taskIDDisplay.textContent = task.id;
             const fileUrl = `${location.origin}/r/${encodeURIComponent(task.id)}`;
             taskUrlDisplay.textContent = fileUrl
-            new QRCode("qrcode", {
-                text: fileUrl,
-                width: 160,
-                height: 160,
-                colorDark: "#5f9ea0",
-                colorLight: "#FFFFFF",
-            });
+            if (task.show_qr) {
+                qrcode.classList.remove("hidden");
+                new QRCode("qrcode", {
+                    text: fileUrl,
+                    width: 160,
+                    height: 160,
+                    colorDark: "#5f9ea0",
+                    colorLight: "#FFFFFF",
+                });
+            } else {
+                qrcode.classList.add("hidden");
+            }
             taskProgress.textContent = "Waiting for download……"
 
             let retry = null;
