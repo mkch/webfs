@@ -60,11 +60,11 @@
             const downloadedTimesDisplay = document.querySelector("#downloaded_times")
             const qrcode = document.querySelector("#qrcode");
 
-            chooseFilePanel.classList.add("hidden")
-            progressPanel.classList.remove("hidden")
+            chooseFilePanel.classList.add("hidden");
+            progressPanel.classList.remove("hidden");
             taskIDDisplay.textContent = task.id;
             const fileUrl = `${location.origin}/r/${encodeURIComponent(task.id)}`;
-            taskUrlDisplay.textContent = fileUrl
+            taskUrlDisplay.textContent = fileUrl;
             if (task.show_qr) {
                 qrcode.classList.remove("hidden");
                 new QRCode("qrcode", {
@@ -77,7 +77,7 @@
             } else {
                 qrcode.classList.add("hidden");
             }
-            taskProgress.textContent = "Waiting for download……"
+            taskProgress.textContent = "Waiting for download……";
 
             let retry = null;
             let downloadedTimes = 0;
