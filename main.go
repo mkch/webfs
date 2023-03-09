@@ -143,6 +143,8 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 	var query = r.URL.Query()
 	task := queryTask(query.Get("task"))
 	if task == nil || task.Secret() != query.Get("secret") {
+		// Increase the cost of brute force.
+		time.Sleep(taskFailDelay)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -191,16 +193,16 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// recvFailDelay is the delay after failure of
+// taskFailDelay is the delay after failure of
 // finding a task, for security.
-const recvFailDelay = time.Second * 2
+const taskFailDelay = time.Second * 2
 
 // handleReceiveFile download a file from the fileTask.
 func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 	task := queryTask(path.Base(r.URL.Path))
 	if task == nil {
 		// Increase the cost of brute force.
-		time.Sleep(recvFailDelay)
+		time.Sleep(taskFailDelay)
 		http.Error(w, "no such task", http.StatusNotFound)
 		return
 	}
