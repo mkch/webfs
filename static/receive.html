@@ -11,8 +11,8 @@
 <body>
     <div style="text-align: center; ; margin-top: 10pt;">
         <div>
-            <input id="task_id" placeholder="File Code" style="width: 6em;"> <button
-                onclick="download()">Download</button>
+            <input id="task_id" onkeypress="taskIdOnKeyPress(event)" placeholder="File Code" style="width: 6em;">
+            <button onclick="download()">Download</button>
         </div>
         <div style="margin-top: 10pt;">
             <a href="#" onclick="history.back()">Back</a>
@@ -23,6 +23,12 @@
         function download() {
             const taskID = document.querySelector("#task_id").value.trim().toUpperCase();
             window.location.href = `/r/${encodeURIComponent(taskID)}`;
+        }
+        function taskIdOnKeyPress(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                download();
+            }
         }
     </script>
 </body>
