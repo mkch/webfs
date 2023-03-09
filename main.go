@@ -44,11 +44,12 @@ func main() {
 
 	flag.StringVar(&serveAddr, "http", DefaultServeAddr, "HTTP service address")
 	flag.IntVar(&idLen, "code_len", DefaultIDLen, fmt.Sprintf("Length of the task code, [%v,%v]", DefaultIDLen, MaxIDLen))
+	flag.Parse()
+
 	if idLen < DefaultIDLen || idLen > MaxIDLen {
 		fmt.Fprintln(os.Stderr, "Invalid code_len")
 		os.Exit(1)
 	}
-	flag.Parse()
 
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/new_task", handleNewTask)
