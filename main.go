@@ -44,7 +44,7 @@ func main() {
 	var serveAddr string
 
 	flag.StringVar(&serveAddr, "http", DefaultServeAddr, "HTTP service address")
-	flag.IntVar(&idLen, "code_len", DefaultIDLen, fmt.Sprintf("Length of the task code, [%v,%v]", DefaultIDLen, MaxIDLen))
+	flag.IntVar(&idLen, "code-len", DefaultIDLen, fmt.Sprintf("Length of the task code, [%v,%v]", DefaultIDLen, MaxIDLen))
 	flag.BoolVar(&showQR, "show-qr", false, "Show QR code of downloading URL in sending page")
 	flag.Parse()
 
