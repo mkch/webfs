@@ -1,4 +1,4 @@
-package main
+package task
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/mkch/webfs/token"
 )
 
-type FileTaskContent struct {
+type Content struct {
 	downloadStarted chan struct{} // Closed when downloading started.
 	downloadDone    chan struct{} // Closed when downloading done.
 
@@ -24,44 +24,44 @@ type FileTaskContent struct {
 }
 
 // File returns the file of the task.
-func (c *FileTaskContent) File() (filename string, fileSize int64, reader io.Reader) {
+func (c *Content) File() (filename string, fileSize int64, reader io.Reader) {
 	filename = c.filename
 	fileSize = c.fileSize
 	reader = c.reader
 	return
 }
 
-func (c *FileTaskContent) DownloadDone() <-chan struct{} {
+func (c *Content) DownloadDone() <-chan struct{} {
 	return c.downloadDone
 }
 
 // Call after DownloadDone is closed.
-func (c *FileTaskContent) DownloadErr() error {
+func (c *Content) DownloadErr() error {
 	c.l.RLock()
 	defer c.l.RUnlock()
 	return c.downloadError
 }
 
-func (c *FileTaskContent) SetDownloadDone(err error) {
+func (c *Content) SetDownloadDone(err error) {
 	c.l.Lock()
 	c.downloadError = err
 	c.l.Unlock()
 	close(c.downloadDone)
 }
 
-func (c *FileTaskContent) DownloadStarted() <-chan struct{} {
+func (c *Content) DownloadStarted() <-chan struct{} {
 	return c.downloadStarted
 }
 
-func (c *FileTaskContent) SetDownloadStarted() {
+func (c *Content) SetDownloadStarted() {
 	close(c.downloadStarted)
 }
 
-func newFileTaskContent(filename string, fileSize int64, reader io.Reader) *FileTaskContent {
+func NewContent(filename string, fileSize int64, reader io.Reader) *Content {
 	if reader == nil {
 		panic(reader)
 	}
-	return &FileTaskContent{
+	return &Content{
 		downloadStarted: make(chan struct{}),
 		downloadDone:    make(chan struct{}),
 		filename:        filename,
@@ -70,7 +70,7 @@ func newFileTaskContent(filename string, fileSize int64, reader io.Reader) *File
 	}
 }
 
-type fileTask struct {
+type Task struct {
 	id     string
 	secret string // Secret to cancel task.
 
@@ -78,41 +78,41 @@ type fileTask struct {
 	ctxErr    func() error           // The Err method of task context.
 	ctxCancel func()                 // The cancel function of task context.
 
-	content chan (*FileTaskContent) // The content of uploading/downloading.
+	content chan (*Content) // The content of uploading/downloading.
 }
 
 // All pending tasks indexed by ID.
-var tasks map[string]*fileTask = make(map[string]*fileTask)
+var tasks map[string]*Task = make(map[string]*Task)
 var tasksLock sync.RWMutex
 
-func (t *fileTask) ID() string {
+func (t *Task) ID() string {
 	return t.id
 }
 
-func (t *fileTask) Secret() string {
+func (t *Task) Secret() string {
 	return t.secret
 }
 
-func (t *fileTask) CtxDone() <-chan struct{} {
+func (t *Task) CtxDone() <-chan struct{} {
 	return t.ctxDone()
 }
 
-func (t *fileTask) CtxCancel() {
+func (t *Task) CtxCancel() {
 	t.ctxCancel()
 }
 
-func (t *fileTask) CtxErr() error {
+func (t *Task) CtxErr() error {
 	return t.ctxErr()
 }
 
-func (t *fileTask) Content() chan *FileTaskContent {
+func (t *Task) Content() chan *Content {
 	return t.content
 }
 
 const maxTask = 10240
 
-// newTask creates a new file task.
-func newTask(idLen int, timeout time.Duration, secret string) (*fileTask, error) {
+// New creates a new file task.
+func New(idLen int, timeout time.Duration, secret string) (*Task, error) {
 	tasksLock.Lock()
 	defer tasksLock.Unlock()
 
@@ -121,12 +121,12 @@ func newTask(idLen int, timeout time.Duration, secret string) (*fileTask, error)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	task := &fileTask{
+	task := &Task{
 		secret:    secret,
 		ctxDone:   ctx.Done,
 		ctxErr:    ctx.Err,
 		ctxCancel: cancel,
-		content:   make(chan *FileTaskContent),
+		content:   make(chan *Content),
 	}
 
 	for i := 0; i < 9999; i++ {
@@ -146,7 +146,7 @@ func newTask(idLen int, timeout time.Duration, secret string) (*fileTask, error)
 	// Remove timeout/cancelled task.
 	go func() {
 		<-task.CtxDone()
-		removeTask(task.ID())
+		Remove(task.ID())
 		log.Printf("Removed task [%v]", task.ID())
 	}()
 
@@ -154,14 +154,14 @@ func newTask(idLen int, timeout time.Duration, secret string) (*fileTask, error)
 	return task, nil
 }
 
-func removeTask(id string) {
+func Remove(id string) {
 	tasksLock.Lock()
 	defer tasksLock.Unlock()
 
 	delete(tasks, id)
 }
 
-func queryTask(id string) *fileTask {
+func Query(id string) *Task {
 	tasksLock.RLock()
 	defer tasksLock.RUnlock()
 	return tasks[id]

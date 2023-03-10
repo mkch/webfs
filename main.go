@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mkch/webfs/modfs"
+	"github.com/mkch/webfs/task"
 	"github.com/mkch/webfs/token"
 
 	"embed"
@@ -81,12 +82,12 @@ func handleCancelTask(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	task := queryTask(id)
-	if task == nil || task.Secret() != secret {
+	t := task.Query(id)
+	if t == nil || t.Secret() != secret {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	task.CtxCancel()
+	t.CtxCancel()
 }
 
 // handleNewTask generates a new fileTask and responds the ID and secret.
@@ -104,7 +105,7 @@ func handleNewTask(w http.ResponseWriter, r *http.Request) {
 			timeout = d
 		}
 	}
-	task, err := newTask(idLen, timeout, token.New(taskSecretLen))
+	t, err := task.New(idLen, timeout, token.New(taskSecretLen))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -114,7 +115,7 @@ func handleNewTask(w http.ResponseWriter, r *http.Request) {
 		ID     string `json:"id"`
 		Secret string `json:"secret"`
 		ShowQR bool   `json:"show_qr"`
-	}{ID: task.ID(), Secret: task.Secret(), ShowQR: showQR})
+	}{ID: t.ID(), Secret: t.Secret(), ShowQR: showQR})
 	if err != nil {
 		log.Println(err)
 		return
@@ -145,8 +146,8 @@ func handleReceive(w http.ResponseWriter, r *http.Request) {
 // handleSendFile uploads a file to the fileTask.
 func handleSendFile(w http.ResponseWriter, r *http.Request) {
 	var query = r.URL.Query()
-	task := queryTask(query.Get("task"))
-	if task == nil || task.Secret() != query.Get("secret") {
+	t := task.Query(query.Get("task"))
+	if t == nil || t.Secret() != query.Get("secret") {
 		// Increase the cost of brute force.
 		time.Sleep(taskFailDelay)
 		w.WriteHeader(http.StatusNotFound)
@@ -165,12 +166,12 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var content = newFileTaskContent(filename, fileSize, r.Body)
+	var content = task.NewContent(filename, fileSize, r.Body)
 	select {
-	case <-task.CtxDone():
-		http.Error(w, task.CtxErr().Error(), http.StatusBadRequest)
+	case <-t.CtxDone():
+		http.Error(w, t.CtxErr().Error(), http.StatusBadRequest)
 		return
-	case task.Content() <- content:
+	case t.Content() <- content:
 	}
 
 	select {
@@ -185,8 +186,8 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 		}
 	case <-content.DownloadDone(): // Finish downloading.
 		err = content.DownloadErr()
-	case <-task.ctxDone(): // Task timeout/cancelled.
-		err = task.ctxErr()
+	case <-t.CtxDone(): // Task timeout/cancelled.
+		err = t.CtxErr()
 	case <-r.Context().Done(): // Upload cancelled by client.
 		err = r.Context().Err()
 	}
@@ -203,19 +204,19 @@ const taskFailDelay = time.Second * 2
 
 // handleReceiveFile download a file from the fileTask.
 func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
-	task := queryTask(path.Base(r.URL.Path))
-	if task == nil {
+	t := task.Query(path.Base(r.URL.Path))
+	if t == nil {
 		// Increase the cost of brute force.
 		time.Sleep(taskFailDelay)
 		http.Error(w, "no such task", http.StatusNotFound)
 		return
 	}
 
-	var content *FileTaskContent
+	var content *task.Content
 	select {
-	case content = <-task.Content():
-	case <-task.CtxDone():
-		http.Error(w, task.ctxErr().Error(), http.StatusNotFound)
+	case content = <-t.Content():
+	case <-t.CtxDone():
+		http.Error(w, t.CtxErr().Error(), http.StatusNotFound)
 		return
 	case <-r.Context().Done():
 		// The request connection is closed.
