@@ -11,6 +11,7 @@ import (
 	"github.com/mkch/webfs/token"
 )
 
+// Content is the content of a file task.
 type Content struct {
 	downloadStarted chan struct{} // Closed when downloading started.
 	downloadDone    chan struct{} // Closed when downloading done.
@@ -31,17 +32,21 @@ func (c *Content) File() (filename string, fileSize int64, reader io.Reader) {
 	return
 }
 
+// DownloadDone returns a channel that's closed by calling SetDownloadDone.
 func (c *Content) DownloadDone() <-chan struct{} {
 	return c.downloadDone
 }
 
-// Call after DownloadDone is closed.
+// If SetDownloadDone is not yet called, DownloadErr returns nil.
+// If DownloadDone is closed,  DownloadErr returns the error set by SetDownloadDone.
 func (c *Content) DownloadErr() error {
 	c.l.RLock()
 	defer c.l.RUnlock()
 	return c.downloadError
 }
 
+// SetDownloadDone marks the downloading is done by closing DownloadDone.
+// err is the error occurred during downloading, nil if none.
 func (c *Content) SetDownloadDone(err error) {
 	c.l.Lock()
 	c.downloadError = err
@@ -49,14 +54,18 @@ func (c *Content) SetDownloadDone(err error) {
 	close(c.downloadDone)
 }
 
+// DownloadStarted returns a channel that's closed by calling SetDownloadStarted.
 func (c *Content) DownloadStarted() <-chan struct{} {
 	return c.downloadStarted
 }
 
+// SetDownloadStarted marks the downloading is started by closing DownloadStarted.
 func (c *Content) SetDownloadStarted() {
 	close(c.downloadStarted)
 }
 
+// NewContent creates a new Content.
+// fileSize can be -1 if unavailable.
 func NewContent(filename string, fileSize int64, reader io.Reader) *Content {
 	if reader == nil {
 		panic(reader)
@@ -146,7 +155,7 @@ func New(idLen int, timeout time.Duration, secret string) (*Task, error) {
 	// Remove timeout/cancelled task.
 	go func() {
 		<-task.CtxDone()
-		Remove(task.ID())
+		remove(task.ID())
 		log.Printf("Removed task [%v]", task.ID())
 	}()
 
@@ -154,7 +163,7 @@ func New(idLen int, timeout time.Duration, secret string) (*Task, error) {
 	return task, nil
 }
 
-func Remove(id string) {
+func remove(id string) {
 	tasksLock.Lock()
 	defer tasksLock.Unlock()
 
