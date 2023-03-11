@@ -1,0 +1,4 @@
+GOOS=darwin GOARCH=amd64 go build -o bin/webfs-darwin-amd64
+GOOS=windows GOARCH=amd64 go build -o bin/webfs-windows-amd64.exe
+GOOS=linux GOARCH=amd64 go build -o bin/webfs-linux-amd64
+GOOS=linux GOARCH=arm go build -o bin/webfs-linux-arm
