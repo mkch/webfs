@@ -24,24 +24,26 @@
     </style>
 
     <input style="display: none;" type="file" multiple id="file_upload">
-    <div style="text-align: center; margin-top: 10pt;">
+    <div style="text-align: center; width:fit-content; margin-top: 10pt; margin-left: auto; margin-right: auto;">
         <div id="choose_file">
             <button id="choose_file_button" onclick="start()">Choose file</button>
         </div>
         <div id="progress" class="hidden" style="width: fit-content; margin-left: auto; margin-right: auto;">
-            <div style="text-align: left;">
-                <span>File Code:</span>
-                <span id="task_id" class="code"></span>
-            </div>
-            <div style="text-align: left; margin-bottom: 10pt;">
-                <span>File URL: </span>
-                <span id="task_url" class="code"></span>
+            <div style="margin-bottom: 10pt; width: fit-content; margin-left: auto; margin-right: auto;">
+                <div style=" text-align: left;">
+                    <span>File Code:</span>
+                    <span id="task_id" class="code"></span>
+                </div>
+                <div style="text-align: left; margin-bottom: 10pt;">
+                    <span>File URL: </span>
+                    <span id="task_url" class="code"></span>
+                </div>
             </div>
             <div id="qrcode"
                 style="width:160px; height:160px; margin-top:10px; margin-bottom: 10px; margin-left: auto; margin-right: auto;">
             </div>
-            <!--div id="task_progress"></div>
-            <div id="downloaded_times"></div-->
+            <div id="task_progress"
+                style="text-align: left; width: fit-content; margin-left: auto; margin-right: auto;"></div>
         </div>
 
         <div style="margin-top: 10pt;">
@@ -50,23 +52,11 @@
     </div>
 
     <script>
-        function uploadFile(task, i, file) {
+        function uploadFile(task, i, file, progress) {
             let retry = null;
             //let downloadedTimes = 0;
             function upload() {
                 const xhr = new XMLHttpRequest();
-                // xhr.upload.onprogress = function (e) {
-                //     if (e.lengthComputable) {
-                //         let percentage = Math.round((e.loaded * 100) / e.total);
-                //         if (percentage > 99) {
-                //             percentage = 99;
-                //         }
-                //         taskProgress.textContent = `${percentage}%`;
-                //     } else {
-                //         taskProgress.textContent = "Downloading starts……";
-                //     }
-                // };
-
                 xhr.onreadystatechange = function (e) {
                     // onerror will not be triggered
                     // if the body is not received completely 
@@ -86,11 +76,10 @@
                             }
                             break;
                         case 200:
-                        //downloadedTimes++;
-                        //downloadedTimesDisplay.textContent = `Downloaded times: ${downloadedTimes}`;
+                            // Downloading done.
+                            progress.done.style.visibility = "visible";
                         // no break;
                         default:
-                            //taskProgress.textContent = 'Waiting for download……';
                             if (retry) {
                                 clearTimeout(retry);
                             }
@@ -125,8 +114,8 @@
                     const chooseFilePanel = document.querySelector("#choose_file");
                     const progressPanel = document.querySelector("#progress");
                     const taskIDDisplay = document.querySelector("#task_id");
-                    //const taskProgress = document.querySelector("#task_progress");
-                    //const downloadedTimesDisplay = document.querySelector("#downloaded_times");
+                    const taskProgress = document.querySelector("#task_progress");
+                    const progresses = [];
 
                     chooseFilePanel.classList.add("hidden");
                     progressPanel.classList.remove("hidden");
@@ -134,7 +123,6 @@
                     const taskUrlDisplay = document.querySelector("#task_url");
                     const fileUrl = `${location.origin}/r/${encodeURIComponent(task.id)}`;
                     taskUrlDisplay.textContent = fileUrl;
-                    //taskProgress.textContent = "Waiting for download……";
                     const qrcode = document.querySelector("#qrcode");
                     if (task.show_qr) {
                         qrcode.classList.remove("hidden");
@@ -150,7 +138,27 @@
                     }
 
                     for (let i = 0; i < files.length; i++) {
-                        uploadFile(task, i, files[i]);
+                        const div = document.createElement("div");
+                        div.style.paddingTop = "5pt";
+                        const done = document.createElement("span");
+                        done.style.padding = "3pt";
+                        done.style.visibility = "hidden";
+                        done.textContent = "✅";
+
+                        const filename = document.createElement("span");
+                        filename.style.fontSize = "small";
+                        filename.style.overflow = "hidden";
+                        filename.style.whiteSpace = "nowrap";
+                        filename.style.textOverflow = "ellipsis";
+                        filename.style.float = "left";
+                        filename.style.maxWidth = "35ch";
+                        filename.style.color = "cadetblue";
+                        filename.textContent = files[i].name;
+
+                        div.appendChild(done);
+                        div.appendChild(filename);
+                        taskProgress.appendChild(div);
+                        uploadFile(task, i, files[i], { done: done });
                     }
                 } else {
                     alert(`New task failed: ${await response.text()}`);
