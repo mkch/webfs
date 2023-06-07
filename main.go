@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net"
@@ -32,6 +33,11 @@ var staticFileServer = http.FileServer(http.FS(
 		FS:           staticFiles,
 		LastModified: time.Now(),
 	}))
+
+//go:embed template
+var templateFiles embed.FS
+
+var templates = template.Must(template.ParseFS(templateFiles, "template/*.html"))
 
 const DefaultServeAddr = ":8080"
 
@@ -105,7 +111,21 @@ func handleNewTask(w http.ResponseWriter, r *http.Request) {
 			timeout = d
 		}
 	}
-	t, err := task.New(idLen, timeout, token.New(taskSecretLen))
+
+	var files []task.FileInfo
+	if err := json.NewDecoder(r.Body).Decode(&files); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+
+	for _, f := range files {
+		if f.Name == "" || f.Size == 0 || (f.Size < 0 && f.Size != -1) {
+			http.Error(w, "invalid body", http.StatusBadRequest)
+			return
+		}
+	}
+
+	t, err := task.New(idLen, timeout, token.New(taskSecretLen), files)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -154,24 +174,19 @@ func handleSendFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := query.Get("filename")
-	if len(filename) == 0 {
-		http.Error(w, "invalid filename", http.StatusBadRequest)
+	index, err := strconv.Atoi(query.Get("index"))
+	if err != nil || index < 0 || index > t.NFiles()-1 {
+		http.Error(w, "invalid index", http.StatusBadRequest)
 		return
 	}
 
-	fileSize, err := strconv.ParseInt(query.Get("size"), 10, 64)
-	if err != nil || fileSize < 0 && fileSize != -1 {
-		http.Error(w, "invalid size", http.StatusBadRequest)
-		return
-	}
-
-	var content = task.NewContent(filename, fileSize, r.Body)
+	file := t.File(index)
+	content := task.NewFileContent(r.Body)
 	select {
 	case <-t.CtxDone():
 		http.Error(w, t.CtxErr().Error(), http.StatusBadRequest)
 		return
-	case t.Content() <- content:
+	case file.Content() <- content:
 	}
 
 	select {
@@ -212,9 +227,42 @@ func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var content *task.Content
+	var err error
+	query := r.URL.Query()
+	index := 0
+	if !query.Has("index") {
+		if t.NFiles() > 1 {
+			// Show file list.
+			data := &struct {
+				ID        string
+				Indexes   []int
+				Filenames []string
+			}{ID: t.ID()}
+			for i := 0; i < t.NFiles(); i++ {
+				data.Indexes = append(data.Indexes, i)
+				data.Filenames = append(data.Filenames, t.File(i).Info().Name)
+			}
+			err = templates.ExecuteTemplate(w, "file_list.html", data)
+			if err != nil {
+				log.Panic(err)
+			}
+			return
+		}
+	} else {
+		index, err = strconv.Atoi(r.URL.Query().Get("index"))
+	}
+
+	if err != nil || index < 0 || index > t.NFiles()-1 {
+		http.Error(w, "invalid index", http.StatusBadRequest)
+		return
+	}
+
+	file := t.File(index)
+	fileInfo := file.Info()
+
+	var content *task.FileContent
 	select {
-	case content = <-t.Content():
+	case content = <-file.Content():
 	case <-t.CtxDone():
 		http.Error(w, t.CtxErr().Error(), http.StatusNotFound)
 		return
@@ -224,17 +272,16 @@ func handleReceiveFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename, fileSize, reader := content.File()
 	header := w.Header()
-	if fileSize >= 0 {
-		header.Set("Content-Length", strconv.FormatInt(fileSize, 10))
+	if fileInfo.Size >= 0 {
+		header.Set("Content-Length", strconv.FormatInt(fileInfo.Size, 10))
 	}
 	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition
-	header.Set("Content-Disposition", fmt.Sprintf(`attachment; filename*=utf-8''%v`, url.PathEscape(filename)))
+	header.Set("Content-Disposition", fmt.Sprintf(`attachment; filename*=utf-8''%v`, url.PathEscape(fileInfo.Name)))
 	header.Set("Content-Type", "application/octet-stream")
 
 	content.SetDownloadStarted()
-	_, err := io.Copy(w, reader)
+	_, err = io.Copy(w, content.Reader())
 	if err != nil {
 		var netErr net.Error
 		if errors.As(err, &netErr) {

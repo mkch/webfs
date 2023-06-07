@@ -12,14 +12,9 @@ import (
 )
 
 func TestContent(t *testing.T) {
-	content := task.NewContent("file1", 1, strings.NewReader("abc"))
-	name, size, reader := content.File()
-	if name != "file1" {
-		t.Fatal(name)
-	}
-	if size != 1 {
-		t.Fatal(size)
-	}
+	content := task.NewFileContent(strings.NewReader("abc"))
+	reader := content.Reader()
+
 	if b, err := io.ReadAll(reader); err != nil {
 		t.Fatal(err)
 	} else if str := string(b); str != "abc" {
@@ -62,7 +57,7 @@ func TestContent(t *testing.T) {
 }
 
 func TestTask(t *testing.T) {
-	ft, err := task.New(3, time.Millisecond*100, "abc")
+	ft, err := task.New(3, time.Millisecond*100, "abc", []task.FileInfo{{"abc.txt", 100}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +70,7 @@ func TestTask(t *testing.T) {
 	if secret := ft.Secret(); secret != "abc" {
 		t.Fatal(secret)
 	}
-	if content := ft.Content(); content == nil {
+	if content := ft.File(0).Content(); content == nil {
 		t.Fatal(content)
 	}
 	if done := ft.CtxDone(); done == nil {

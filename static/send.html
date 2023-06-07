@@ -23,7 +23,7 @@
         }
     </style>
 
-    <input style="display: none;" type="file" id="file_upload">
+    <input style="display: none;" type="file" multiple id="file_upload">
     <div style="text-align: center; margin-top: 10pt;">
         <div id="choose_file">
             <button id="choose_file_button" onclick="start()">Choose file</button>
@@ -40,8 +40,8 @@
             <div id="qrcode"
                 style="width:160px; height:160px; margin-top:10px; margin-bottom: 10px; margin-left: auto; margin-right: auto;">
             </div>
-            <div id="task_progress"></div>
-            <div id="downloaded_times"></div>
+            <!--div id="task_progress"></div>
+            <div id="downloaded_times"></div-->
         </div>
 
         <div style="margin-top: 10pt;">
@@ -50,50 +50,22 @@
     </div>
 
     <script>
-        function uploadFile(task, file) {
-            window.onunload = () => fetch(`/cancel_task?task=${encodeURIComponent(task.id)}&secret=${encodeURIComponent(task.secret)}`);
-            const chooseFilePanel = document.querySelector("#choose_file");
-            const progressPanel = document.querySelector("#progress");
-            const taskIDDisplay = document.querySelector("#task_id");
-            const taskUrlDisplay = document.querySelector("#task_url");
-            const taskProgress = document.querySelector("#task_progress");
-            const downloadedTimesDisplay = document.querySelector("#downloaded_times")
-            const qrcode = document.querySelector("#qrcode");
-
-            chooseFilePanel.classList.add("hidden");
-            progressPanel.classList.remove("hidden");
-            taskIDDisplay.textContent = task.id;
-            const fileUrl = `${location.origin}/r/${encodeURIComponent(task.id)}`;
-            taskUrlDisplay.textContent = fileUrl;
-            if (task.show_qr) {
-                qrcode.classList.remove("hidden");
-                new QRCode("qrcode", {
-                    text: fileUrl,
-                    width: 160,
-                    height: 160,
-                    colorDark: "#5f9ea0",
-                    colorLight: "#FFFFFF",
-                });
-            } else {
-                qrcode.classList.add("hidden");
-            }
-            taskProgress.textContent = "Waiting for download……";
-
+        function uploadFile(task, i, file) {
             let retry = null;
-            let downloadedTimes = 0;
+            //let downloadedTimes = 0;
             function upload() {
                 const xhr = new XMLHttpRequest();
-                xhr.upload.onprogress = function (e) {
-                    if (e.lengthComputable) {
-                        let percentage = Math.round((e.loaded * 100) / e.total);
-                        if (percentage > 99) {
-                            percentage = 99;
-                        }
-                        taskProgress.textContent = `${percentage}%`;
-                    } else {
-                        taskProgress.textContent = "Downloading starts……";
-                    }
-                };
+                // xhr.upload.onprogress = function (e) {
+                //     if (e.lengthComputable) {
+                //         let percentage = Math.round((e.loaded * 100) / e.total);
+                //         if (percentage > 99) {
+                //             percentage = 99;
+                //         }
+                //         taskProgress.textContent = `${percentage}%`;
+                //     } else {
+                //         taskProgress.textContent = "Downloading starts……";
+                //     }
+                // };
 
                 xhr.onreadystatechange = function (e) {
                     // onerror will not be triggered
@@ -107,26 +79,29 @@
                     window.onbeforeunload = null;
                     switch (e.target.status) {
                         case 404:
-                            alert('Task cancelled!')
-                            window.location.reload();
+                            if (!task.cancelled) {
+                                task.cancelled = true;
+                                alert('Task cancelled!');
+                                window.location.reload();
+                            }
                             break;
                         case 200:
-                            downloadedTimes++;
-                            downloadedTimesDisplay.textContent = `Downloaded times: ${downloadedTimes}`;
+                        //downloadedTimes++;
+                        //downloadedTimesDisplay.textContent = `Downloaded times: ${downloadedTimes}`;
                         // no break;
                         default:
-                            taskProgress.textContent = 'Waiting for download……';
+                            //taskProgress.textContent = 'Waiting for download……';
                             if (retry) {
                                 clearTimeout(retry);
                             }
                             // e.target.status == 0
                             // The request is not performed successfully. Maybe network error.
-                            retry = setTimeout(upload, e.target.status == 0 ? 1000 : 0)
+                            retry = setTimeout(upload, e.target.status == 0 ? 1000 : 0);
                             break;
                     }
                 };
 
-                xhr.open('POST', `/send_file?task=${encodeURIComponent(task.id)}&secret=${encodeURIComponent(task.secret)}&filename=${encodeURIComponent(file.name)}&size=${encodeURIComponent(file.size)}`, true);
+                xhr.open('POST', `/send_file?task=${encodeURIComponent(task.id)}&secret=${encodeURIComponent(task.secret)}&index=${encodeURIComponent(i)}`, true);
                 xhr.setRequestHeader('Content-Type', 'application/octet-stream');
                 xhr.send(file);
                 window.onbeforeunload = (e) => {
@@ -136,14 +111,44 @@
             }
             upload();
         }
-        function sendFile(file) {
+        function sendFiles(files) {
             const button = document.querySelector("#choose_file_button");
             button.disabled = true;
-            fetch("/new_task")
+            fetch("/new_task", { method: "POST", body: JSON.stringify(files.map(f => ({ name: f.name, size: f.size }))) })
                 .then((response) => {
                     if (response.ok) {
-                        response.text().then((task) => {
-                            uploadFile(JSON.parse(task), file);
+                        response.json().then((task) => {
+                            window.onunload = () => fetch(`/cancel_task?task=${encodeURIComponent(task.id)}&secret=${encodeURIComponent(task.secret)}`);
+                            const chooseFilePanel = document.querySelector("#choose_file");
+                            const progressPanel = document.querySelector("#progress");
+                            const taskIDDisplay = document.querySelector("#task_id");
+                            //const taskProgress = document.querySelector("#task_progress");
+                            //const downloadedTimesDisplay = document.querySelector("#downloaded_times")
+
+                            chooseFilePanel.classList.add("hidden");
+                            progressPanel.classList.remove("hidden");
+                            taskIDDisplay.textContent = task.id;
+                            const taskUrlDisplay = document.querySelector("#task_url");
+                            const fileUrl = `${location.origin}/r/${encodeURIComponent(task.id)}`;
+                            taskUrlDisplay.textContent = fileUrl;
+                            //taskProgress.textContent = "Waiting for download……";
+                            const qrcode = document.querySelector("#qrcode");
+                            if (task.show_qr) {
+                                qrcode.classList.remove("hidden");
+                                new QRCode("qrcode", {
+                                    text: fileUrl,
+                                    width: 160,
+                                    height: 160,
+                                    colorDark: "#5f9ea0",
+                                    colorLight: "#FFFFFF",
+                                });
+                            } else {
+                                qrcode.classList.add("hidden");
+                            }
+
+                            for (let i = 0; i < files.length; i++) {
+                                uploadFile(task, i, files[i]);
+                            }
                         })
                     } else {
                         response.text().then((error) => alert(`New task failed: ${error}`))
@@ -158,8 +163,15 @@
             fileUpload.accept = "";
             fileUpload.onchange = () => {
                 if (fileUpload.files.length > 0) {
-                    sendFile(fileUpload.files[0]);
+                    // Make a copy of the content of fileUpload.files.
+                    // The following "Reset fileUpload" code makes fileUpload.files empty. 
+                    const files = [];
+                    for (let i = 0; i < fileUpload.files.length; i++) {
+                        files.push(fileUpload.files[i])
+                    }
+                    sendFiles(files);
                 }
+                // Reset fileUpload
                 fileUpload.value = "";
                 fileUpload.onchange = undefined;
             };

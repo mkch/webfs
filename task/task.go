@@ -11,35 +11,42 @@ import (
 	"github.com/mkch/webfs/token"
 )
 
-// Content is the content of a file task.
-type Content struct {
+type FileInfo struct {
+	Name string `json:"name"` // Filename of the task.
+	Size int64  `json:"size"` // File size of the task. -1 if unavailable.
+}
+
+type FileContent struct {
+	reader io.Reader // File data.
+
 	downloadStarted chan struct{} // Closed when downloading started.
 	downloadDone    chan struct{} // Closed when downloading done.
-
-	filename string    // Filename of the task.
-	fileSize int64     // File size of the task. -1 if unavailable.
-	reader   io.Reader // File content of task.
 
 	l             sync.RWMutex
 	downloadError error // The error of download.
 }
 
-// File returns the file of the task.
-func (c *Content) File() (filename string, fileSize int64, reader io.Reader) {
-	filename = c.filename
-	fileSize = c.fileSize
-	reader = c.reader
-	return
+// NewFileContent creates a new FileContent.
+func NewFileContent(reader io.Reader) *FileContent {
+	return &FileContent{
+		downloadStarted: make(chan struct{}),
+		downloadDone:    make(chan struct{}),
+		reader:          reader,
+	}
+}
+
+func (c *FileContent) Reader() io.Reader {
+	return c.reader
 }
 
 // DownloadDone returns a channel that's closed by calling SetDownloadDone.
-func (c *Content) DownloadDone() <-chan struct{} {
+func (c *FileContent) DownloadDone() <-chan struct{} {
 	return c.downloadDone
 }
 
 // If SetDownloadDone is not yet called, DownloadErr returns nil.
 // If DownloadDone is closed,  DownloadErr returns the error set by SetDownloadDone.
-func (c *Content) DownloadErr() error {
+func (c *FileContent) DownloadErr() error {
 	c.l.RLock()
 	defer c.l.RUnlock()
 	return c.downloadError
@@ -47,7 +54,7 @@ func (c *Content) DownloadErr() error {
 
 // SetDownloadDone marks the downloading is done by closing DownloadDone.
 // err is the error occurred during downloading, nil if none.
-func (c *Content) SetDownloadDone(err error) {
+func (c *FileContent) SetDownloadDone(err error) {
 	c.l.Lock()
 	c.downloadError = err
 	c.l.Unlock()
@@ -55,28 +62,37 @@ func (c *Content) SetDownloadDone(err error) {
 }
 
 // DownloadStarted returns a channel that's closed by calling SetDownloadStarted.
-func (c *Content) DownloadStarted() <-chan struct{} {
+func (c *FileContent) DownloadStarted() <-chan struct{} {
 	return c.downloadStarted
 }
 
 // SetDownloadStarted marks the downloading is started by closing DownloadStarted.
-func (c *Content) SetDownloadStarted() {
+func (c *FileContent) SetDownloadStarted() {
 	close(c.downloadStarted)
 }
 
-// NewContent creates a new Content.
-// fileSize can be -1 if unavailable.
-func NewContent(filename string, fileSize int64, reader io.Reader) *Content {
-	if reader == nil {
-		panic(reader)
+// File is the content of a file task.
+type File struct {
+	info    FileInfo
+	content chan (*FileContent)
+}
+
+func (c *File) Content() chan (*FileContent) {
+	return c.content
+}
+
+// Info returns the information of file.
+func (c *File) Info() FileInfo {
+	return c.info
+}
+
+// newFiles creates a slice of *File.
+func newFiles(info []FileInfo) (files []*File) {
+	files = make([]*File, 0, len(info))
+	for _, f := range info {
+		files = append(files, &File{info: f, content: make(chan *FileContent)})
 	}
-	return &Content{
-		downloadStarted: make(chan struct{}),
-		downloadDone:    make(chan struct{}),
-		filename:        filename,
-		fileSize:        fileSize,
-		reader:          reader,
-	}
+	return
 }
 
 type Task struct {
@@ -87,7 +103,7 @@ type Task struct {
 	ctxErr    func() error           // The Err method of task context.
 	ctxCancel func()                 // The cancel function of task context.
 
-	content chan (*Content) // The content of uploading/downloading.
+	files []*File
 }
 
 // All pending tasks indexed by ID.
@@ -114,14 +130,18 @@ func (t *Task) CtxErr() error {
 	return t.ctxErr()
 }
 
-func (t *Task) Content() chan *Content {
-	return t.content
+func (t *Task) NFiles() int {
+	return len(t.files)
+}
+
+func (t *Task) File(n int) *File {
+	return t.files[n]
 }
 
 const maxTask = 10240
 
 // New creates a new file task.
-func New(idLen int, timeout time.Duration, secret string) (*Task, error) {
+func New(idLen int, timeout time.Duration, secret string, files []FileInfo) (*Task, error) {
 	tasksLock.Lock()
 	defer tasksLock.Unlock()
 
@@ -135,7 +155,7 @@ func New(idLen int, timeout time.Duration, secret string) (*Task, error) {
 		ctxDone:   ctx.Done,
 		ctxErr:    ctx.Err,
 		ctxCancel: cancel,
-		content:   make(chan *Content),
+		files:     newFiles(files),
 	}
 
 	for i := 0; i < 9999; i++ {
