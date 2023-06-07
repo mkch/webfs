@@ -111,65 +111,70 @@
             }
             upload();
         }
-        function sendFiles(files) {
-            const button = document.querySelector("#choose_file_button");
-            button.disabled = true;
-            fetch("/new_task", { method: "POST", body: JSON.stringify(files.map(f => ({ name: f.name, size: f.size }))) })
-                .then((response) => {
-                    if (response.ok) {
-                        response.json().then((task) => {
-                            window.onunload = () => fetch(`/cancel_task?task=${encodeURIComponent(task.id)}&secret=${encodeURIComponent(task.secret)}`);
-                            const chooseFilePanel = document.querySelector("#choose_file");
-                            const progressPanel = document.querySelector("#progress");
-                            const taskIDDisplay = document.querySelector("#task_id");
-                            //const taskProgress = document.querySelector("#task_progress");
-                            //const downloadedTimesDisplay = document.querySelector("#downloaded_times")
+        async function sendFiles(files) {
+            try {
+                const response = await fetch("/new_task", {
+                    method: "POST",
+                    body: JSON.stringify(
+                        files.map(f => ({ name: f.name, size: f.size }))
+                    )
+                });
+                if (response.ok) {
+                    const task = await response.json();
+                    window.onunload = () => fetch(`/cancel_task?task=${encodeURIComponent(task.id)}&secret=${encodeURIComponent(task.secret)}`);
+                    const chooseFilePanel = document.querySelector("#choose_file");
+                    const progressPanel = document.querySelector("#progress");
+                    const taskIDDisplay = document.querySelector("#task_id");
+                    //const taskProgress = document.querySelector("#task_progress");
+                    //const downloadedTimesDisplay = document.querySelector("#downloaded_times");
 
-                            chooseFilePanel.classList.add("hidden");
-                            progressPanel.classList.remove("hidden");
-                            taskIDDisplay.textContent = task.id;
-                            const taskUrlDisplay = document.querySelector("#task_url");
-                            const fileUrl = `${location.origin}/r/${encodeURIComponent(task.id)}`;
-                            taskUrlDisplay.textContent = fileUrl;
-                            //taskProgress.textContent = "Waiting for download……";
-                            const qrcode = document.querySelector("#qrcode");
-                            if (task.show_qr) {
-                                qrcode.classList.remove("hidden");
-                                new QRCode("qrcode", {
-                                    text: fileUrl,
-                                    width: 160,
-                                    height: 160,
-                                    colorDark: "#5f9ea0",
-                                    colorLight: "#FFFFFF",
-                                });
-                            } else {
-                                qrcode.classList.add("hidden");
-                            }
-
-                            for (let i = 0; i < files.length; i++) {
-                                uploadFile(task, i, files[i]);
-                            }
-                        })
+                    chooseFilePanel.classList.add("hidden");
+                    progressPanel.classList.remove("hidden");
+                    taskIDDisplay.textContent = task.id;
+                    const taskUrlDisplay = document.querySelector("#task_url");
+                    const fileUrl = `${location.origin}/r/${encodeURIComponent(task.id)}`;
+                    taskUrlDisplay.textContent = fileUrl;
+                    //taskProgress.textContent = "Waiting for download……";
+                    const qrcode = document.querySelector("#qrcode");
+                    if (task.show_qr) {
+                        qrcode.classList.remove("hidden");
+                        new QRCode("qrcode", {
+                            text: fileUrl,
+                            width: 160,
+                            height: 160,
+                            colorDark: "#5f9ea0",
+                            colorLight: "#FFFFFF",
+                        });
                     } else {
-                        response.text().then((error) => alert(`New task failed: ${error}`))
+                        qrcode.classList.add("hidden");
                     }
-                })
-                .catch((error) => alert(`New task failed: ${error}`))
-                .finally(() => button.disabled = false);
+
+                    for (let i = 0; i < files.length; i++) {
+                        uploadFile(task, i, files[i]);
+                    }
+                } else {
+                    alert(`New task failed: ${await response.text()}`);
+                }
+            } catch (error) {
+                alert(`New task failed: ${error}`)
+            }
         }
         function start() {
             const fileUpload = document.querySelector("#file_upload");
             fileUpload.value = "";
             fileUpload.accept = "";
-            fileUpload.onchange = () => {
+            fileUpload.onchange = async () => {
                 if (fileUpload.files.length > 0) {
+                    const button = document.querySelector("#choose_file_button");
+                    button.disabled = true;
                     // Make a copy of the content of fileUpload.files.
                     // The following "Reset fileUpload" code makes fileUpload.files empty. 
                     const files = [];
                     for (let i = 0; i < fileUpload.files.length; i++) {
-                        files.push(fileUpload.files[i])
+                        files.push(fileUpload.files[i]);
                     }
-                    sendFiles(files);
+                    await sendFiles(files);
+                    button.disabled = false;
                 }
                 // Reset fileUpload
                 fileUpload.value = "";
