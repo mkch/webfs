@@ -86,6 +86,10 @@
                     if (e.target.readyState < 4) {
                         return;
                     }
+                    if (progressTimer) {
+                        clearTimeout(progressTimer);
+                    }
+                    progress.uploading.style.visibility = "hidden";
                     window.onbeforeunload = null;
                     switch (e.target.status) {
                         case 404:
@@ -161,15 +165,15 @@
                         const div = document.createElement("div");
                         div.style.paddingTop = "5pt";
                         const done = document.createElement("span");
-                        done.style.paddingLeft = "3pt";
+                        done.style.paddingLeft = "5pt";
                         done.style.visibility = "hidden";
                         done.textContent = "✅";
 
                         const uploading = document.createElement("span");
-                        uploading.style.paddingLeft = "2pt";
+                        uploading.style.paddingLeft = "3pt";
                         uploading.style.visibility = "hidden";
                         uploading.textContent = "•";
-                        uploading.style.color = "cadetblue";
+                        uploading.style.color = "green";
                         uploading.style.animation = "fading 1s infinite alternate"
 
                         const filename = document.createElement("span");
