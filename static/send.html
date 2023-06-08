@@ -21,6 +21,16 @@
             color: cadetblue;
             font-weight: bold;
         }
+
+        @keyframes fading {
+            0% {
+                opacity: 1
+            }
+
+            100% {
+                opacity: 0
+            }
+        }
     </style>
 
     <input style="display: none;" type="file" multiple id="file_upload">
@@ -54,9 +64,19 @@
     <script>
         function uploadFile(task, i, file, progress) {
             let retry = null;
-            //let downloadedTimes = 0;
+            let progressTimer = null;
             function upload() {
                 const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = () => {
+                    if (progressTimer) {
+                        clearTimeout(progressTimer);
+                        progressTimer = null;
+                    }
+                    progress.uploading.style.visibility = "visible";
+                    progressTimer = setTimeout(() => {
+                        progress.uploading.style.visibility = "hidden";
+                    }, 500);
+                };
                 xhr.onreadystatechange = function (e) {
                     // onerror will not be triggered
                     // if the body is not received completely 
@@ -141,9 +161,16 @@
                         const div = document.createElement("div");
                         div.style.paddingTop = "5pt";
                         const done = document.createElement("span");
-                        done.style.padding = "3pt";
+                        done.style.paddingLeft = "3pt";
                         done.style.visibility = "hidden";
                         done.textContent = "✅";
+
+                        const uploading = document.createElement("span");
+                        uploading.style.paddingLeft = "2pt";
+                        uploading.style.visibility = "hidden";
+                        uploading.textContent = "•";
+                        uploading.style.color = "cadetblue";
+                        uploading.style.animation = "fading 1s infinite alternate"
 
                         const filename = document.createElement("span");
                         filename.style.fontSize = "small";
@@ -156,9 +183,10 @@
                         filename.textContent = files[i].name;
 
                         div.appendChild(done);
+                        div.appendChild(uploading);
                         div.appendChild(filename);
                         taskProgress.appendChild(div);
-                        uploadFile(task, i, files[i], { done: done });
+                        uploadFile(task, i, files[i], { done: done, uploading: uploading });
                     }
                 } else {
                     alert(`New task failed: ${await response.text()}`);
