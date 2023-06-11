@@ -52,8 +52,7 @@
             <div id="qrcode"
                 style="width:160px; height:160px; margin-top:10px; margin-bottom: 10px; margin-left: auto; margin-right: auto;">
             </div>
-            <div id="task_progress"
-                style="text-align: left; width: fit-content; margin-left: auto; margin-right: auto;"></div>
+            <table id="task_progress" style="margin-top: 5pt; margin-left: auto; margin-right: auto;">
         </div>
 
         <div style="margin-top: 10pt;">
@@ -162,34 +161,34 @@
                     }
 
                     for (let i = 0; i < files.length; i++) {
-                        const div = document.createElement("div");
-                        div.style.paddingTop = "5pt";
-                        const done = document.createElement("span");
-                        done.style.paddingLeft = "5pt";
+                        const done = document.createElement("td");
                         done.style.visibility = "hidden";
                         done.textContent = "✅";
 
-                        const uploading = document.createElement("span");
+                        const uploading = document.createElement("td");
                         uploading.style.paddingLeft = "3pt";
                         uploading.style.visibility = "hidden";
                         uploading.textContent = "•";
                         uploading.style.color = "green";
                         uploading.style.animation = "fading 1s infinite alternate"
 
-                        const filename = document.createElement("span");
-                        filename.style.fontSize = "small";
-                        filename.style.overflow = "hidden";
-                        filename.style.whiteSpace = "nowrap";
-                        filename.style.textOverflow = "ellipsis";
-                        filename.style.float = "left";
-                        filename.style.maxWidth = "35ch";
-                        filename.style.color = "cadetblue";
-                        filename.textContent = files[i].name;
+                        const filenameSpan = document.createElement("span");
+                        filenameSpan.style.fontSize = "small";
+                        filenameSpan.style.overflow = "hidden";
+                        filenameSpan.style.whiteSpace = "nowrap";
+                        filenameSpan.style.textOverflow = "ellipsis";
+                        filenameSpan.style.float = "left";
+                        filenameSpan.style.maxWidth = "35ch";
+                        filenameSpan.style.color = "cadetblue";
+                        filenameSpan.textContent = files[i].name;
+                        const filename = document.createElement("td");
+                        filename.appendChild(filenameSpan);
 
-                        div.appendChild(done);
-                        div.appendChild(uploading);
-                        div.appendChild(filename);
-                        taskProgress.appendChild(div);
+                        const tr = document.createElement("tr");
+                        tr.appendChild(done);
+                        tr.appendChild(uploading);
+                        tr.appendChild(filename);
+                        taskProgress.appendChild(tr);
                         uploadFile(task, i, files[i], { done: done, uploading: uploading });
                     }
                 } else {
